@@ -1,0 +1,33 @@
+# paqueteria
+*.pyc
+*.egg-info
+/dist/
+/build/
+/node_modules/
+
+#Archivos Media
+midoc_project/media/
+
+# IDE
+.project
+.pydevproject
+.settings
+.idea
+
+#temp
+*.swp
+*.swo
+*.*~
+.~lock.*
+*.DS_Store
+.python-version
+
+#test
+.coverage
+.noseids
+coverage.xml
+violations.txt
+nosetests.xml
+/.cache/
+/htmlcov/*
+/.tox/*
