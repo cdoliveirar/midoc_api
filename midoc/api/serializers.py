@@ -7,6 +7,7 @@ from .models import (Patient,
                      Competition,
                      Voucher,
                      RecoveryEmail,
+                     Plan,
 
                      )
 
@@ -247,4 +248,15 @@ class CustomerPaymentInfoSerializer(serializers.Serializer):
 class RecoveryEmailSerializer(serializers.ModelSerializer):
     class Meta:
         model = RecoveryEmail
+        fields = '__all__'
+
+class UpdatePasswordSerializer(serializers.Serializer):
+    email = serializers.CharField(max_length=250)
+    code = serializers.CharField(max_length=20)
+    password = serializers.CharField(max_length=100)
+
+
+class PlanSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Plan
         fields = '__all__'

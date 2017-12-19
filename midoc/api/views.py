@@ -27,6 +27,7 @@ from .serializers import (DoctorSerializer,
                           VoucherSerializer,
                           CardInfoSerializer,
                           CustomerPaymentInfoSerializer,
+                          UpdatePasswordSerializer,
                           )
 from .models import (Doctor,
                      Location,
@@ -1686,7 +1687,6 @@ class PatientLogin(APIView):
             print(response_msg)
             return HttpResponse(json.dumps(response_msg, cls=DjangoJSONEncoder), content_type='application/json')
 
-
 # General
 class PatientRegisterView(APIView):
     serializer_class = PatientSerializer
@@ -1734,35 +1734,40 @@ class PatientRegisterView(APIView):
 
 
 # General
+# General
 class RecoveryEmailView(APIView):
     serializer_class = RecoveryEmailSerializer
 
-
-    def post(self, request, format=None):
-        serializer = self.serializer_class(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        vd = serializer.validated_data
-        print(vd)
-        print(vd.get("patient"))
+    def get(self, request, *args, **kwargs):
+        email = kwargs["email"]
+        print(email)
 
         try:
-            rm = RecoveryEmail(patient=vd.get("patient"), code=code_generator())
-            rm.save()
+            patient=Patient.objects.get(email=email)
+            if patient:
+                rm = RecoveryEmail(patient=patient, code=code_generator())
+                rm.save()
+                recovery.delay(rm.patient.email, rm.code)
 
-            recovery.delay(rm.patient.email, rm.code)
+                response_msg = {'details': 'El codigo de verificacion fue creado con exito',
+                                'status': status.HTTP_200_OK}
+                return HttpResponse(json.dumps(response_msg, cls=DjangoJSONEncoder), content_type='application/json')
 
-            response_msg = {'details': 'El codigo de verificacion fue creado con exito', 'status': status.HTTP_200_OK}
-            return HttpResponse(json.dumps(response_msg, cls=DjangoJSONEncoder), content_type='application/json')
-
+            else:
+                response_msg = {'details': 'este mail no esta registrado',
+                                'status': status.HTTP_404_NOT_FOUND}
+                return HttpResponse(json.dumps(response_msg, cls=DjangoJSONEncoder), content_type='application/json')
 
         except Exception as inst:
+            print(inst)
             response_msg = [{'create': 'failure'}]
             return HttpResponse(json.dumps(response_msg, cls=DjangoJSONEncoder), content_type='application/json')
+
 
 # General
 # sent the code and the patient id
 class ResponseEmailCode(APIView):
-    serializer_class = RecoveryEmailSerializer
+    serializer_class = UpdatePasswordSerializer
 
     def post(self, request, format=None):
         serializer = self.serializer_class(data=request.data)
@@ -1770,25 +1775,42 @@ class ResponseEmailCode(APIView):
         vd = serializer.validated_data
         print(vd)
         print(vd.get("code"))
-        print(vd.get("patient"))
+        print(vd.get("password"))
+        print(vd.get("email"))
 
         try:
-            re = RecoveryEmail.objects.get(code=vd.get("code"))
-            if re and re.is_used == False and re.patient.pk == int(vd.get("patient")):
-                re.is_used = True
-                re.save()
-                response_msg = {'details': 'El codigo de verificacion fue usado con éxito','status': status.HTTP_200_OK}
-                return HttpResponse(json.dumps(response_msg, cls=DjangoJSONEncoder), content_type='application/json')
-            else:
-                response_msg = {'details': 'Este codigo es inválido', 'status': status.HTTP_403_FORBIDDEN}
+            try:
+                re = RecoveryEmail.objects.get(code=vd.get("code"))
+            except RecoveryEmail.DoesNotExist:
+                re = None
+            print(re)
+            if re is None:
+                response_msg = {'details': 'Este codigo o email es inválido', 'status': status.HTTP_403_FORBIDDEN}
                 return HttpResponse(json.dumps(response_msg, cls=DjangoJSONEncoder), content_type='application/json')
 
+            else:
+                if re.is_used == False and re.patient.email == vd.get("email"):
+                    re.is_used = True
+                    re.save()
+                    p = Patient.objects.get(email=vd.get("email"))
+                    p.password = vd.get("password")
+                    p.save()
+                    response_msg = {'details': 'El codigo de verificacion fue usado con éxito',
+                                    'status': status.HTTP_200_OK}
+                    return HttpResponse(json.dumps(response_msg, cls=DjangoJSONEncoder), content_type='application/json')
+                else:
+                    response_msg = {'details': 'Por favor verifica el email ingresado', 'status': status.HTTP_403_FORBIDDEN}
+                    return HttpResponse(json.dumps(response_msg, cls=DjangoJSONEncoder),
+                                        content_type='application/json')
+
         except Exception as inst:
+            print(inst)
             response_msg = [{'create': 'verification failure'}]
             return HttpResponse(json.dumps(response_msg, cls=DjangoJSONEncoder), content_type='application/json')
 
-class UpdateEmailPassword(APIView):
 
+# General
+class UpdateEmailPassword(APIView):
     def post(self, request, format=None):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -1801,18 +1823,26 @@ class UpdateEmailPassword(APIView):
             if patient:
                 patient.password = vd.get("password")
                 patient.save()
-                response_msg = {'details': 'El Password se actualizo con exito','status': status.HTTP_200_OK}
+                response_msg = {'details': 'El Password se actualizo con exito', 'status': status.HTTP_200_OK}
                 return HttpResponse(json.dumps(response_msg, cls=DjangoJSONEncoder), content_type='application/json')
 
             else:
                 response_msg = {'details': 'Este paciente no existe', 'status': status.HTTP_404_NOT_FOUND}
                 return HttpResponse(json.dumps(response_msg, cls=DjangoJSONEncoder), content_type='application/json')
 
-
-
         except Exception as inst:
+            print(inst)
             response_msg = [{'create': 'verification failure'}]
             return HttpResponse(json.dumps(response_msg, cls=DjangoJSONEncoder), content_type='application/json')
+
+
+class PlanView(APIView):
+
+    def get(self, request, format=None):
+        plan = Plan.objects.all()
+        serializer = PlanSerializer(plan, many=True)
+        plan_list = {"plan_list": serializer.data}
+        return Response(plan_list)
 
 
 
