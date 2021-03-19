@@ -7,7 +7,7 @@ culqipy==0.2.6
 Django==1.11.6
 django-cors-headers==2.1.0
 django-filter==1.0.4
-djangorestframework==3.7.3
+djangorestframework==3.11.2
 gunicorn==19.7.1
 idna==2.6
 kombu==4.1.0
